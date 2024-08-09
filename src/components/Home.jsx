@@ -10,28 +10,45 @@ const Home = () => {
   const [netFeatureModel, setNetFeatureModel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [classNames, setClassNames] = useState([]);
+  const [gatheringClass, setGatheringClass] = useState(null);
 
-
-  // model.add(
-  //   tf.layers.dense({ inputShape: [1024], units: 128, activation: "relu" })
-  // );
-  // model.add(
-  //   tf.layers.dense({ units: classNames.length, activation: "softmax" })
-  // );
-
-  // model.summary();
-
-  // model.compile({
-  //   optimizer: "adam",
-  //   loss: (classNames.length === 2) ? "binaryCrossentropy" : "categoricalCrossentropy",
-  //   metrics: ["accuracy"],
-  // })
-
- 
-
-  function getherDataForClass(event) {
+  function gatherDataForClass(event) {
     let classNumber = parseInt(event.target.getAttribute("data-class"));
-    console.log("Ghetering :" + classNumber);
+    setGatheringClass(classNumber);
+    console.log("Gathering data for class:", classNumber);
+    if (!loading && model && isCameraOn) {
+      gatherData(classNumber);
+    }
+  }
+
+  function gatherData(dataClass) {
+    let counter = 0;
+
+    const intervalId = setInterval(() => {
+      console.log(`Gathering data: ${counter}`);
+
+      let imageFeatures = tf.tidy(() => {
+        let videoFrame = tf.browser.fromPixels(videoRef.current);
+        let resizedFrame = tf.image.resizeBilinear(
+          videoFrame,
+          [224, 224],
+          true
+        );
+        let normalizedFrame = resizedFrame.div(255.0);
+        return netFeatureModel.predict(normalizedFrame.expandDims());
+      });
+
+      setTrainingDataInput((prev) => [...prev, imageFeatures]);
+      setTrainingDataOutputs((prev) => [...prev, dataClass]);
+
+      counter++;
+      if (counter === 10) {
+        clearInterval(intervalId);
+        console.log("Zakończono zbieranie danych.");
+        console.log("Training data input:", trainingDataInput);
+        console.log("Training data outputs:", trainingDataOutputs);
+      }
+    }, 1000);
   }
 
   function toggleCamera() {
@@ -98,10 +115,22 @@ const Home = () => {
       </div>
       <video ref={videoRef} autoPlay />
       <div>
-        <button data-class="1" onClick={getherDataForClass}>Dice One</button>
-        <button data-class="2" onClick={getherDataForClass}>Dice Two</button>
+        <button
+          className="data-collector"
+          data-class="1"
+          onClick={gatherDataForClass}
+        >
+          Dice One
+        </button>
+        <button
+          className="data-collector"
+          data-class="2"
+          onClick={gatherDataForClass}
+        >
+          Dice Two
+        </button>
         <div>
-          <button>Trein</button>
+          <button>Train</button>
           <button>Reset</button>
         </div>
       </div>
